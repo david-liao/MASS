@@ -200,6 +200,8 @@ def get_parser():
     # evaluation
     parser.add_argument("--eval_bleu", type=bool_flag, default=False,
                         help="Evaluate BLEU score during MT training")
+    parser.add_argument("--eval_rouge", type=bool_flag, default=False,
+                        help="Evaluate ROUGE score during MT training")                        
     parser.add_argument("--eval_only", type=bool_flag, default=False,
                         help="Only run evaluations")
 

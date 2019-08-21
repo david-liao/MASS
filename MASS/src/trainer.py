@@ -890,7 +890,7 @@ class EncDecTrainer(Trainer):
         self.optimize(loss, ['encoder', 'decoder'])
 
         # number of processed sentences / words
-        self.n_sentences += params.batch_size
+        self.n_sentences += len2.size(0) # params.batch_size // when param.tokens_per_batch != -1, batch_size is not fixed -ljw
         self.stats['processed_s'] += len2.size(0)
         self.stats['processed_w'] += (len2 - 1).sum().item()
 

@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+set -e
+
 GIGAPATH=sumdata
 
 CODES=40000
@@ -42,8 +44,8 @@ FASTBPE=$TOOLS_PATH/fastBPE/fast
 MAIN_PATH=$PWD
 TOOLS_PATH=$PWD/tools
 DATA_PATH=$PWD/data
-PARA_PATH=$DATA_PATH/para/
-PROC_PATH=$DATA_PATH/processed/giga/
+PARA_PATH=$DATA_PATH/para
+PROC_PATH=$DATA_PATH/processed/giga
 
 # create paths
 mkdir -p $TOOLS_PATH
@@ -69,7 +71,7 @@ TRAIN_TGT=$PARA_PATH/train.ar-ti.ti
 VALID_SRC=$PARA_PATH/valid.ar-ti.ar
 VALID_TGT=$PARA_PATH/valid.ar-ti.ti
 TEST_SRC=$PARA_PATH/test.ar-ti.ar
-TEST_TGT=$PARA_PATH/test.ar-ti.ar
+TEST_TGT=$PARA_PATH/test.ar-ti.ti   # correct suffix from ar to ti which is an error in original script. - ljw
 
 TRAIN_SRC_BPE=$PROC_PATH/train.ar-ti.ar
 TRAIN_TGT_BPE=$PROC_PATH/train.ar-ti.ti
@@ -80,6 +82,11 @@ TEST_TGT_BPE=$PROC_PATH/test.ar-ti.ti
 
 BPE_CODES=$PROC_PATH/codes
 FULL_VOCAB=$PROC_PATH/vocab.ar-ti
+
+
+# install tools
+./install-tools.sh
+
 
 if [ ! -f $TRAIN_SRC_RAW ]; then
 	gzip -d $TRAIN_SRC_RAW.gz

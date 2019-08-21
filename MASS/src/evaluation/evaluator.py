@@ -189,7 +189,8 @@ class Evaluator(object):
                 # machine translation task (evaluate perplexity and accuracy)
                 for lang1, lang2 in set(params.mt_steps + [(l2, l3) for _, l2, l3 in params.bt_steps] + mass_steps):
                     eval_bleu = params.eval_bleu and params.is_master
-                    self.evaluate_mt(scores, data_set, lang1, lang2, eval_bleu)
+                    eval_rouge = params.eval_rouge and params.is_master
+                    self.evaluate_mt(scores, data_set, lang1, lang2, eval_bleu, eval_rouge)
 
                 # report average metrics per language
                 _clm_mono = [l1 for (l1, l2) in params.clm_steps if l2 is None]
@@ -445,7 +446,7 @@ class EncDecEvaluator(Evaluator):
 
         return x1, l1, x2, l2, y, pred_mask, pos
 
-    def evaluate_mt(self, scores, data_set, lang1, lang2, eval_bleu):
+    def evaluate_mt(self, scores, data_set, lang1, lang2, eval_bleu, eval_rouge):
         """
         Evaluate perplexity and next word prediction accuracy.
         """
@@ -468,7 +469,7 @@ class EncDecEvaluator(Evaluator):
         n_valid = 0
 
         # store hypothesis to compute BLEU score
-        if eval_bleu:
+        if eval_bleu or eval_rouge:
             hypothesis = []
 
         for batch in self.get_iterator(data_set, lang1, lang2):
@@ -503,7 +504,7 @@ class EncDecEvaluator(Evaluator):
             n_valid += (word_scores.max(1)[1] == y).sum().item()
 
             # generate translation - translate / convert to text
-            if eval_bleu:
+            if eval_bleu or eval_rouge:
                 max_len = int(1.5 * len1.max().item() + 10)
                 if params.beam_size == 1:
                     generated, lengths = decoder.generate(enc1, len1, lang2_id, max_len=max_len)
@@ -520,8 +521,8 @@ class EncDecEvaluator(Evaluator):
         scores['%s_%s-%s_mt_ppl' % (data_set, lang1, lang2)] = np.exp(xe_loss / n_words)
         scores['%s_%s-%s_mt_acc' % (data_set, lang1, lang2)] = 100. * n_valid / n_words
 
-        # compute BLEU
-        if eval_bleu:
+        # compute BLEU and ROUGE
+        if eval_bleu or eval_rouge:
 
             # hypothesis / reference paths
             hyp_name = 'hyp{0}.{1}-{2}.{3}.txt'.format(scores['epoch'], lang1, lang2, data_set)
@@ -533,10 +534,24 @@ class EncDecEvaluator(Evaluator):
                 f.write('\n'.join(hypothesis) + '\n')
             restore_segmentation(hyp_path)
 
-            # evaluate BLEU score
-            bleu = eval_moses_bleu(ref_path, hyp_path)
-            logger.info("BLEU %s %s : %f" % (hyp_path, ref_path, bleu))
-            scores['%s_%s-%s_mt_bleu' % (data_set, lang1, lang2)] = bleu
+            if eval_bleu:
+                # evaluate BLEU score
+                bleu = eval_moses_bleu(ref_path, hyp_path)
+                logger.info("BLEU %s %s : %f" % (hyp_path, ref_path, bleu))
+                scores['%s_%s-%s_mt_bleu' % (data_set, lang1, lang2)] = bleu
+            
+            if eval_rouge:
+                # evaluate ROUGE score
+                from rouge import FilesRouge
+                files_rouge = FilesRouge(hyp_path, ref_path)
+                rouge_scores = files_rouge.get_scores(avg=True)
+                rouge_1 = rouge_scores['rouge-1']['f'] * 100
+                rouge_2 = rouge_scores['rouge-2']['f'] * 100
+                rouge_l = rouge_scores['rouge-l']['f'] * 100
+                logger.info("ROUGE %s %s : RG-1(F) %f; RG-2(F) %f; RG-L(F) %f" % (hyp_path, ref_path, rouge_1, rouge_2, rouge_l))
+                scores['%s_%s-%s_mt_rouge-1' % (data_set, lang1, lang2)] = rouge_1
+                scores['%s_%s-%s_mt_rouge-2' % (data_set, lang1, lang2)] = rouge_2
+                scores['%s_%s-%s_mt_rouge-l' % (data_set, lang1, lang2)] = rouge_l
 
 
 def convert_to_text(batch, lengths, dico, params):
